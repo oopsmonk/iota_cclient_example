@@ -10,7 +10,7 @@ void test_find_trans(iota_client_service_t *s) {
   find_tran = find_transactions_req_add_address(find_tran, HASH_2);
 
   find_transactions_res_t *find_tran_res = find_transactions_res_new();
-  iota_api_find_transactions(s, find_tran, &find_tran_res);
+  iota_client_find_transactions(s, find_tran, &find_tran_res);
 
   printf("address num = %d\n", find_transactions_res_hash_num(find_tran_res));
   char_buffer_t *hash1 = char_buffer_new();
@@ -32,7 +32,7 @@ void test_node_info(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   get_node_info_res_t *node_res = get_node_info_res_new();
 
-  iota_api_get_node_info(s, &node_res);
+  iota_client_get_node_info(s, &node_res);
 
   printf("appName %s \n", node_res->app_name->data);
   printf("appVersion %s \n", node_res->app_version->data);
@@ -68,7 +68,7 @@ void test_get_neighbors(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   get_neighbors_res_t *nbors_res = get_neighbors_res_new();
 
-  retcode_t ret = iota_api_get_neighbors(s, nbors_res);
+  retcode_t ret = iota_client_get_neighbors(s, nbors_res);
   if (ret != RC_OK) {
     printf("POST failed\n");
     return;
@@ -93,7 +93,7 @@ void test_add_neighbors(iota_client_service_t *s) {
   add_neighbors_req_add(add_req, "udp://8.8.8.8:14265");
   add_neighbors_req_add(add_req, "udp://9.9.9.9:433");
 
-  retcode_t ret = iota_api_add_neighbors(s, add_req, &res);
+  retcode_t ret = iota_client_add_neighbors(s, add_req, &res);
   if (ret != RC_OK) {
     printf("POST failed\n");
     return;
@@ -110,7 +110,7 @@ void test_remove_neighbors(iota_client_service_t *s) {
   remove_neighbors_req_add(remove_req, "udp://8.8.8.8:14265");
   remove_neighbors_req_add(remove_req, "udp://9.9.9.9:433");
 
-  retcode_t ret = iota_api_remove_neighbors(s, remove_req, &res);
+  retcode_t ret = iota_client_remove_neighbors(s, remove_req, &res);
   if (ret != RC_OK) {
     printf("POST failed\n");
     return;
@@ -124,7 +124,7 @@ void test_get_tips(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   get_tips_res_t *tips_res = get_tips_res_new();
 
-  iota_api_get_tips(s, &tips_res);
+  iota_client_get_tips(s, &tips_res);
   for (int i = 0; i < get_tips_res_hash_num(tips_res); i++) {
     char_buffer_t *t = char_buffer_new();
     flex_hash_to_char_buffer(get_tips_res_hash_at(tips_res, i), t);
@@ -141,7 +141,7 @@ void test_get_trytes(iota_client_service_t *s) {
   get_trytes_res_t *trytes_res = get_trytes_res_new();
   trytes_req = get_trytes_req_add(trytes_req, HASH_3);
 
-  iota_api_get_trytes(s, trytes_req, &trytes_res);
+  iota_client_get_trytes(s, trytes_req, &trytes_res);
   for (int i = 0; i < get_trytes_res_num(trytes_res); i++) {
     char_buffer_t *t = char_buffer_new();
     flex_hash_to_char_buffer(get_trytes_res_at(trytes_res, i), t);
@@ -163,7 +163,7 @@ void test_attach_to_tangle(iota_client_service_t *s) {
   attach_req->trytes =
       attach_to_tangle_req_add_trytes(attach_req->trytes, "WHATEVER");
 
-  iota_api_attach_to_tangle(s, attach_req, &attach_res);
+  iota_client_attach_to_tangle(s, attach_req, &attach_res);
   for (int i = 0; i < attach_to_tangle_res_trytes_cnt(attach_res); i++) {
     char_buffer_t *t = char_buffer_new();
     flex_hash_to_char_buffer(get_trytes_res_at(attach_res, i), t);
@@ -181,7 +181,7 @@ void test_check_consistency(iota_client_service_t *s) {
   check_consistency_res_t *consistency_res = check_consistency_res_new();
   consistency_req = check_consistency_req_add(consistency_req, HASH_3);
 
-  iota_api_check_consistency(s, consistency_req, consistency_res);
+  iota_client_check_consistency(s, consistency_req, consistency_res);
   printf("%s\n", consistency_res->state ? "true" : "false");
   printf("%s\n", consistency_res->info->data);
 
@@ -200,7 +200,7 @@ void test_get_inclustion(iota_client_service_t *s) {
   get_inclustion_req =
       get_inclusion_state_req_add_tip(get_inclustion_req, HASH_2);
 
-  if (iota_api_get_inclusion_states(s, get_inclustion_req,
+  if (iota_client_get_inclusion_states(s, get_inclustion_req,
                                     get_inclustion_res) == RC_OK) {
     for (int i = 0; i < get_inclusion_state_res_bool_num(get_inclustion_res); i++) {
       printf("[%d]:%s\n", i, get_inclusion_state_res_bool_at(get_inclustion_res, i) ? "true" : "false");
@@ -220,7 +220,7 @@ void test_get_balance(iota_client_service_t *s) {
 
   balance_req = get_balances_req_add_address(balance_req, HASH_3);
   balance_req->threshold = 0;
-  if (iota_api_get_balances(s, balance_req, &balance_res) == RC_OK) {
+  if (iota_client_get_balances(s, balance_req, &balance_res) == RC_OK) {
     printf("balance0: %s\n", get_balances_res_balances_at(balance_res, 0));
     printf("balance1: %s\n", get_balances_res_balances_at(balance_res, 1));
     printf("balance2: %s\n", get_balances_res_balances_at(balance_res, 2));
@@ -243,7 +243,7 @@ void test_tx_to_approve(iota_client_service_t *s) {
 
   get_transactions_to_approve_req_set_reference(tx_approve_req, HASH_1);
   tx_approve_req->depth = 14;
-  if (iota_api_get_transactions_to_approve(s, tx_approve_req,
+  if (iota_client_get_transactions_to_approve(s, tx_approve_req,
                                            &tx_approve_res) == RC_OK) {
     flex_hash_to_char_buffer(tx_approve_res->trunk, hash_txt);
     printf("trunk: %s\n", hash_txt->data);
@@ -260,7 +260,7 @@ void test_broadcast_tx(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   broadcast_transactions_req_t *req = broadcast_transactions_req_new();
   req = broadcast_transactions_req_add(req, TRYRES_2673);
-  if (iota_api_broadcast_transactions(s, req)) {
+  if (iota_client_broadcast_transactions(s, req)) {
     printf("broadcast_tx failed.\n");
   } else {
     printf("broadcast_tx done.\n");
@@ -272,7 +272,7 @@ void test_store_tx(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   store_transactions_req_t *req = store_transactions_req_new();
   req = store_transactions_req_add(req, TRYRES_2673);
-  if (iota_api_store_transactions(s, req)) {
+  if (iota_client_store_transactions(s, req)) {
     printf("store_tx failed.\n");
   } else {
     printf("store_tx done.\n");
