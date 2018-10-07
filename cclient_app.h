@@ -1,6 +1,6 @@
 #pragma once
 
-#include "iota_client_core_api.h"
+#include "cclient/iota_client_core_api.h"
 
 #define HASH_1                                                                 \
   "RVORZ9SIIP9RCYMREUIXXVPQIPHVCNPQ9HZWYKFWYWZRE9JQKG9REPKIASHUUECPSQO9JT9XNM" \
