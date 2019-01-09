@@ -77,7 +77,7 @@ def dummpy_response(data):
         strR = '{"error":"No URIs"}'
         if data['uris']:
             strR = """{
-                    "addedNeighbors": 0, 
+                    "addedNeighbors": 9,
                     "duration": 2
                 }"""
         return "".join(re.sub(r'(^[ \t]+|[ \t]+(?=:))', '', strR, flags=re.M).split())
