@@ -5,7 +5,7 @@
 
 git_repository(
     name = "entangled",
-    commit = "64633f5efa33a2be7fa1eca26a405b34be268794",
+    commit = "c43d026c340d2345be730370e8b75e93cd2fa450",
     remote = "https://github.com/oopsmonk/entangled.git",
 )
 
