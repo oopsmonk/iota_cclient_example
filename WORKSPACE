@@ -5,13 +5,13 @@
 
 git_repository(
     name = "entangled",
-    commit = "c43d026c340d2345be730370e8b75e93cd2fa450",
-    remote = "https://github.com/oopsmonk/entangled.git",
+    commit = "f0ab6522942ff02bc95f84d37ca1bd2a0a267dfe",
+    remote = "https://github.com/iotaledger/entangled.git",
 )
 
 git_repository(
     name = "rules_iota",
-    commit = "b15744b9ea520717752c866d5afc769c3b6b68f3",
+    commit = "1cb59eea62fd1d071de213a9aa46e61e8273472d",
     remote = "https://github.com/iotaledger/rules_iota.git",
 )
 
