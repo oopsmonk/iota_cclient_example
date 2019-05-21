@@ -1,14 +1,17 @@
-#include "cclient_app.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "cclient_app.h"
+#include "common/trinary/tryte_ascii.h"
+
 // #define _USE_HTTP_
 // #define _MAIN_NET_
 
-#define MY_SEED "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-#define MY_ADDR1 "999999999999999999999999999999999999999999999999999999999999999999999999999999999"
-#define MY_ADDR2 "999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+static tryte_t const *const MY_SEED =
+    (tryte_t *)"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+static tryte_t const *const MY_ADDR1 =
+    (tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999";
 
 void test_find_trans(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
@@ -75,8 +78,8 @@ void test_node_info(iota_client_service_t *s) {
 
   printf("latestMilestoneIndex %u \n", node_res->latest_milestone_index);
 
-  trits_count =
-      flex_trits_to_trytes(trytes_out, NUM_TRYTES_HASH, node_res->latest_milestone, NUM_TRITS_HASH, NUM_TRITS_HASH);
+  trits_count = flex_trits_to_trytes(trytes_out, NUM_TRYTES_HASH, node_res->latest_solid_subtangle_milestone,
+                                     NUM_TRITS_HASH, NUM_TRITS_HASH);
   if (trits_count == 0) {
     printf("trit converting failed\n");
     return;
@@ -323,16 +326,14 @@ void test_get_inclustion(iota_client_service_t *s) {
 
   trits_len = flex_trits_from_trytes(trits_243, NUM_TRITS_HASH, HASH_1, NUM_TRYTES_HASH, NUM_TRYTES_HASH);
   if (trits_len) {
-    ret_code = hash243_queue_push(&get_inclustion_req->hashes, trits_243);
-    if (ret_code) {
+    if ((ret_code = get_inclusion_states_req_hash_add(get_inclustion_req, trits_243)) != RC_OK) {
       goto done;
     }
   }
 
   trits_len = flex_trits_from_trytes(trits_243, NUM_TRITS_HASH, HASH_2, NUM_TRYTES_HASH, NUM_TRYTES_HASH);
   if (trits_len) {
-    ret_code = hash243_queue_push(&get_inclustion_req->tips, trits_243);
-    if (ret_code) {
+    if ((ret_code = get_inclusion_states_req_tip_add(get_inclustion_req, trits_243)) != RC_OK) {
       goto done;
     }
   }
@@ -376,7 +377,7 @@ void test_get_balance(iota_client_service_t *s) {
     }
     printf("]\n");
 
-    CDL_FOREACH(balance_res->milestone, q_iter) {
+    CDL_FOREACH(balance_res->references, q_iter) {
       trits_count = flex_trits_to_trytes(trytes_out, NUM_TRYTES_HASH, q_iter->hash, NUM_TRITS_HASH, NUM_TRITS_HASH);
       trytes_out[NUM_TRYTES_HASH] = '\0';
       if (trits_count != 0) {
@@ -464,6 +465,12 @@ void test_get_new_address(iota_client_service_t *s) {
 
   ret = iota_client_get_new_address(s, seed, opt, &addresses);
   if (ret == RC_OK) {
+#if 0
+    tryte_t addr[NUM_TRYTES_ADDRESS + 1];
+    flex_trits_to_trytes(addr, NUM_TRYTES_ADDRESS, addresses->prev->hash, NUM_TRITS_ADDRESS, NUM_TRITS_ADDRESS);
+    addr[NUM_TRYTES_ADDRESS] = '\0';
+    printf("unused: %s\n", addr);
+#else
     size_t count = hash243_queue_count(addresses);
     hash243_queue_t curr = addresses;
     tryte_t addr[NUM_TRYTES_ADDRESS + 1];
@@ -473,6 +480,7 @@ void test_get_new_address(iota_client_service_t *s) {
       printf("[%d] %s\n", i, addr);
       curr = curr->next;
     }
+#endif
   } else {
     printf("new address failed: %s\n", error_2_string(ret));
   }
@@ -483,38 +491,29 @@ void test_get_inputs(iota_client_service_t *s) {
   printf("\n[%s]\n", __FUNCTION__);
   retcode_t ret = RC_OK;
   flex_trit_t seed[FLEX_TRIT_SIZE_243];
+  tryte_t addr[NUM_TRYTES_ADDRESS + 1] = {};
   address_opt_t opt = {.security = 2, .start = 0, .total = 0};
 
   flex_trits_from_trytes(seed, NUM_TRITS_ADDRESS, (const tryte_t *)MY_SEED, NUM_TRYTES_ADDRESS, NUM_TRYTES_ADDRESS);
 
   // new inputs
-  inputs_t *inp = (inputs_t *)malloc(sizeof(inputs_t));
-  inp->total_balance = 0;
-  inp->addresses = NULL;
+  inputs_t inputs = {};
+  input_t *in = NULL;
 
-  ret = iota_client_get_inputs(s, seed, opt, 2000, inp);
-  if (ret == RC_CCLIENT_INSUFFICIENT_BALANCE || ret == RC_OK) {
-    // printf result
-    size_t addr_count = hash243_queue_count(inp->addresses);
-    printf("address count %zu\n", addr_count);
-    for (int i = 0; i < addr_count; i++) {
-      tryte_t trytes[NUM_TRYTES_ADDRESS + 1] = {[NUM_TRYTES_ADDRESS] = '\0'};
-      flex_trits_to_trytes((signed char *)trytes, NUM_TRYTES_ADDRESS, hash243_queue_at(&inp->addresses, i),
-                           NUM_TRITS_ADDRESS, NUM_TRITS_ADDRESS);
-      printf("[%d] %s\n", i, trytes);
+  addr[NUM_TRYTES_ADDRESS] = '\0';
+  if ((ret = iota_client_get_inputs(s, seed, opt, 2000, &inputs)) == RC_OK) {
+    INPUTS_FOREACH(inputs.input_array, in) {
+      flex_trits_to_trytes((signed char *)addr, NUM_TRYTES_ADDRESS, in->address, NUM_TRITS_ADDRESS, NUM_TRITS_ADDRESS);
+
+      printf("[%" PRIu64 "] %s\n", in->balance, addr);
     }
-    printf("balances : %ld\n", inp->total_balance);
+    printf("total = %" PRIu64 "\n", inputs.total_balance);
+
   } else {
     printf("Error: %s\n", error_2_string(ret));
-    return;
   }
 
-  // free inputs_t
-  if (inp->addresses) {
-    hash243_queue_free(&inp->addresses);
-    inp->addresses = NULL;
-  }
-  free(inp);
+  inputs_clear(&inputs);
 }
 
 void test_get_account_data(iota_client_service_t *s) {
@@ -534,14 +533,12 @@ void test_get_account_data(iota_client_service_t *s) {
   ret = iota_client_get_account_data(s, seed, 2, &account);
   if (ret == RC_OK) {
     tryte_t trytes[NUM_TRYTES_ADDRESS + 1] = {[NUM_TRYTES_ADDRESS] = '\0'};
-#if 0
-    // dump tx
-    size_t tx_count = hash243_queue_count(account->transactions);
+#if 1  // dump transaction hashes
+    size_t tx_count = hash243_queue_count(account.transactions);
     printf("tx count %zu\n", tx_count);
     for (int i = 0; i < tx_count; i++) {
-      flex_trits_to_trytes((signed char *)trytes, NUM_TRYTES_HASH,
-          hash243_queue_at(&account->transactions, i),
-          NUM_TRITS_HASH, NUM_TRITS_HASH);
+      flex_trits_to_trytes((signed char *)trytes, NUM_TRYTES_HASH, hash243_queue_at(&account.transactions, i),
+                           NUM_TRITS_HASH, NUM_TRITS_HASH);
       printf("[%d] %s\n", i, trytes);
     }
 #endif
@@ -667,7 +664,6 @@ void test_send_trytes(iota_client_service_t *s) {
   hash8019_array_p raw_trytes = hash8019_array_new();
   flex_trit_t trits_8019[FLEX_TRIT_SIZE_8019];
   iota_transaction_t *tx_obj = NULL;
-  trit_t trytes_243[NUM_TRYTES_HASH + 1];
 
   flex_trits_from_trytes(trits_8019, NUM_TRITS_SERIALIZED_TRANSACTION, SEND_1K_HASH1, NUM_TRYTES_SERIALIZED_TRANSACTION,
                          NUM_TRYTES_SERIALIZED_TRANSACTION);
@@ -682,16 +678,9 @@ void test_send_trytes(iota_client_service_t *s) {
   hash_array_push(raw_trytes, trits_8019);
 
   if ((ret_code = iota_client_send_trytes(s, raw_trytes, 6, 9, NULL, false, out_tx_objs)) == RC_OK) {
-    TX_OBJS_FOREACH(out_tx_objs, tx_obj) {
-      printf("Tx Info:\n");
-      flex_trits_to_trytes(trytes_243, NUM_TRYTES_HASH, transaction_address(tx_obj), NUM_TRITS_HASH, NUM_TRITS_HASH);
-      trytes_243[NUM_TRYTES_HASH] = '\0';
-      printf("Address: %s\n", trytes_243);
-      flex_trits_to_trytes(trytes_243, NUM_TRYTES_HASH, transaction_hash(tx_obj), NUM_TRITS_HASH, NUM_TRITS_HASH);
-      trytes_243[NUM_TRYTES_HASH] = '\0';
-      printf("Hash: %s\n", trytes_243);
-      printf("Value: %zu\n", transaction_value(tx_obj));
-    }
+#ifdef DEBUG
+    TX_OBJS_FOREACH(out_tx_objs, tx_obj) { transaction_obj_dump(tx_obj); }
+#endif
   }
 
   transaction_array_free(out_tx_objs);
@@ -699,88 +688,70 @@ void test_send_trytes(iota_client_service_t *s) {
 }
 
 void test_send_tx_data(iota_client_service_t *s) {
-  printf("\n TODO [%s]\n", __FUNCTION__);
-#if 0
-  flex_trit_t seed[FLEX_TRIT_SIZE_243];
-  flex_trits_from_trytes(seed, NUM_TRITS_ADDRESS, (const tryte_t *)MY_SEED,
-      NUM_TRYTES_ADDRESS, NUM_TRYTES_ADDRESS);
-  transaction_array_t out_tx_objs = transaction_array_new();
-
-  // tf1
-  flex_trit_t addr[FLEX_TRIT_SIZE_243] = {};
-  flex_trits_from_trytes(addr, NUM_TRITS_HASH,
-      (const tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999",
-      NUM_TRYTES_HASH, NUM_TRYTES_HASH);
-  flex_trit_t tag[FLEX_TRIT_SIZE_81] = {};
-  flex_trits_from_trytes(tag, NUM_TRITS_TAG,
-      (const tryte_t *)"RR9999999999999999999999999",
-      NUM_TRYTES_TAG, NUM_TRYTES_TAG);
-
-  transfer_t* tf1 = transfer_data_new(addr, tag, tag, NUM_TRITS_TAG, 1545188797);
-
-  // tf2
-  flex_trit_t addr2[FLEX_TRIT_SIZE_243] = {};
-  flex_trits_from_trytes(addr2, NUM_TRITS_HASH,
-      (const tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999",
-      NUM_TRYTES_HASH, NUM_TRYTES_HASH);
-  flex_trit_t tag2[FLEX_TRIT_SIZE_81] = {};
-  flex_trits_from_trytes(tag2, NUM_TRITS_TAG,
-      (const tryte_t *)"BB9999999999999999999999999",
-      NUM_TRYTES_TAG, NUM_TRYTES_TAG);
-  transfer_t* tf2 = transfer_data_new(addr2, tag2, addr2, NUM_TRITS_HASH, 1545188797);
-
-  transfer_t* transfers[2] = {tf1, tf2};
-
-  iota_client_send_transfer(s, 6, 9, transfers, 2, NULL, out_tx_objs);
-
-  transaction_array_free(out_tx_objs);
-#endif
-}
-
-void test_send_tx_with_value(iota_client_service_t *s) {
   printf("\n [%s]\n", __FUNCTION__);
-  transaction_array_t *out_tx_objs = transaction_array_new();
+  retcode_t ret_code = RC_ERROR;
+  static char const msg_str[] = "Hello IOTA CClient!!";
+  size_t msg_trytes_len = strlen(msg_str) * 2;
+  tryte_t msg_trytes[msg_trytes_len + 1];
+  transfer_array_t *transfers = transfer_array_new();
+  bundle_transactions_t *bundle = NULL;
+  bundle_transactions_new(&bundle);
+  transfer_t tf = {};
 
+  // my seed
   flex_trit_t seed[FLEX_TRIT_SIZE_243];
-  // flex_trits_from_trytes(seed, NUM_TRITS_ADDRESS, (const tryte_t *)MY_SEED,
-  //     NUM_TRYTES_ADDRESS, NUM_TRYTES_ADDRESS);
+  flex_trits_from_trytes(seed, NUM_TRITS_ADDRESS, MY_SEED, NUM_TRYTES_ADDRESS, NUM_TRYTES_ADDRESS);
+
+  // sets receiver
   flex_trits_from_trytes(
-      seed, NUM_TRITS_ADDRESS,
-      (const tryte_t *)"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      tf.address, NUM_TRITS_ADDRESS,
+      (const tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999",
       NUM_TRYTES_ADDRESS, NUM_TRYTES_ADDRESS);
 
-  // tag
-  flex_trit_t tag[FLEX_TRIT_SIZE_81] = {};
-  flex_trits_from_trytes(tag, NUM_TRITS_TAG, (const tryte_t *)"999999999999999999999999999", NUM_TRYTES_TAG,
+  // sets tag
+  flex_trits_from_trytes(tf.tag, NUM_TRITS_TAG, (const tryte_t *)"CCLIENT99999999999999999999", NUM_TRYTES_TAG,
                          NUM_TRYTES_TAG);
 
-  // reciver address
-  flex_trit_t addr_in[FLEX_TRIT_SIZE_243] = {};
-  flex_trits_from_trytes(
-      addr_in, NUM_TRITS_HASH,
-      (const tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999",
-      NUM_TRYTES_HASH, NUM_TRYTES_HASH);
-  // create a value_int transfer object.
-  transfer_t *value_in = transfer_value_in_new(addr_in, tag, 1, NULL, 0, current_timestamp_ms());
+  // sets message
+  ascii_to_trytes(msg_str, msg_trytes);
+  msg_trytes[msg_trytes_len] = '\0';
+  transfer_message_set(&tf, msg_trytes);
 
-  // sender address
-  flex_trit_t addr_out[FLEX_TRIT_SIZE_243] = {};
-  flex_trits_from_trytes(
-      addr_out, NUM_TRITS_HASH,
-      (const tryte_t *)"999999999999999999999999999999999999999999999999999999999999999999999999999999999",
-      NUM_TRYTES_HASH, NUM_TRYTES_HASH);
+  // adds transfer to transfer array
+  transfer_array_add(transfers, &tf);
 
-  transfer_value_out_t OUTPUT = {seed, 2, 0};  // security = 2, address index = 4
-  transfer_t *value_out = transfer_value_out_new(&OUTPUT, tag, addr_out, -1, current_timestamp_ms());
+  // no remainder and inputs
+  if ((ret_code = iota_client_prepare_transfers(s, seed, 3, transfers, NULL, NULL, false, 0, bundle)) == RC_OK) {
+    hash8019_array_p raw_tx = hash8019_array_new();
+    flex_trit_t serialized_value[FLEX_TRIT_SIZE_8019];
+    iota_transaction_t *tx = NULL;
+    uint32_t depth = 6;
+    uint32_t mwm = 9;
 
-  // transfer bundle
-  transfer_t *transfers[2] = {value_in, value_out};
+    if (ret_code == RC_OK) {
+      BUNDLE_FOREACH(bundle, tx) {
+// tx trytes must be in order, from last to 0.
+#ifdef DEBUG
+        transaction_obj_dump(tx);
+#endif
+        transaction_serialize_on_flex_trits(tx, serialized_value);
+        utarray_insert(raw_tx, serialized_value, 0);
+        // printf("raw_tx: \n%s\n", serialized_value);
+      }
 
-  // depth 6, mwm 10
-  iota_client_send_transfer(s, 6, 10, false, transfers, 2, NULL, out_tx_objs);
+      printf("send trytes\n");
+      ret_code = iota_client_send_trytes(s, raw_tx, depth, mwm, NULL, false, bundle);
+    }
+    hash_array_free(raw_tx);
+  }
 
-  transaction_array_free(out_tx_objs);
+  transfer_array_free(transfers);
+  printf("send trytes done\n");
+  bundle_transactions_free(&bundle);
+  transfer_message_free(&tf);
 }
+
+void test_send_tx_with_value(iota_client_service_t *s) { printf("\n TODO [%s]\n", __FUNCTION__); }
 
 void test_travers_bundle(iota_client_service_t *s) {
   printf("\n [%s]\n", __FUNCTION__);
@@ -831,7 +802,7 @@ void test_get_bundle(iota_client_service_t *s) {
       NUM_TRYTES_HASH, NUM_TRYTES_HASH);
 #endif
 
-  retcode_t ret = iota_client_get_bundle(s, tail_hash, bundle, &bundle_status);
+  iota_client_get_bundle(s, tail_hash, bundle, &bundle_status);
   if (bundle_status == BUNDLE_VALID) {
     printf("bundle status: %d\n", bundle_status);
 #ifdef DEBUG
@@ -892,8 +863,7 @@ int main() {
   serv.http.host = "nodes.thetangle.org";
   serv.http.port = 443;
 #else
-  // serv.http.host = "nodes.devnet.iota.org";
-  serv.http.host = "altnodes.devnet.iota.org";
+  serv.http.host = "nodes.devnet.iota.org";
   serv.http.port = 443;
 #endif
   serv.http.api_version = 1;
@@ -955,13 +925,13 @@ int main() {
   test_send_trytes(&serv);
 #endif
 
-#if 0  // WIP
-  test_send_tx_with_value(&serv);
+#if 0  // sending transactions
   test_send_tx_data(&serv);
+  test_send_tx_with_value(&serv);
 #endif
 
   iota_client_extended_destroy();
   iota_client_core_destroy(&serv);
-  printf("timestamp: %" PRIu64 "\n", current_timestamp_ms());
+  // printf("timestamp: %" PRIu64 "\n", current_timestamp_ms());
   return 0;
 }

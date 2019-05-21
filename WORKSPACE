@@ -1,3 +1,7 @@
+workspace(name = "iota_cclient")
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+
 # local_repository(
 #     name = "entangled",
 #     path = "/path/to/entangled",
@@ -5,13 +9,13 @@
 
 git_repository(
     name = "entangled",
-    commit = "f0ab6522942ff02bc95f84d37ca1bd2a0a267dfe",
+    commit = "6cd787df1f085a248f97bd7e57b4116b5ce75649",
     remote = "https://github.com/iotaledger/entangled.git",
 )
 
 git_repository(
     name = "rules_iota",
-    commit = "1cb59eea62fd1d071de213a9aa46e61e8273472d",
+    commit = "7c2446c6cf94486071f6ad1067385b393fbe3dd4",
     remote = "https://github.com/iotaledger/rules_iota.git",
 )
 

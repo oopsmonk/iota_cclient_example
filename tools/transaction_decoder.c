@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cclient/iota_client_core_api.h"
+#include "cclient/api/core/core_api.h"
 
 #define DEFAULT_HOST "nodes.devnet.iota.org"
 #define DEFAULT_PORT 80
